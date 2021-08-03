@@ -10,3 +10,4 @@ class User:
         self.id = id
         self.balance = 100
         self.starting_game = False
+        self.time_cashup = datetime.now() - timedelta(seconds=500)

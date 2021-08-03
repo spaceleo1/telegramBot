@@ -3,8 +3,8 @@ from numpy import random
 suits = {
     0: 'черви',
     1: 'пики',
-    2: 'бубны',
-    3: 'трефы'
+    2: 'буби',
+    3: 'крести'
 }
 
 numbers = range(1, 14)

@@ -3,7 +3,6 @@ from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackQueryH
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from datetime import datetime
 import logging
-import json
 
 from user import User
 
@@ -24,9 +23,9 @@ def start(update: Update, context: CallbackContext) -> None:
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=
     """Привет, со мной можно сыграть в игру BlackJack!)
-Начать игру напиши /game
-Узнать баланс отправь /balance
-Пополнить баланс отправь /cashup
+Начать игру /game
+Узнать баланс /balance
+Пополнить баланс /cashup
     """)
 
 
@@ -65,6 +64,7 @@ def check_message(update, context):
     if id not in users:
         return
     if users[id].starting_game:
+
         users[id].starting_game = False
         ch = True
         try:
