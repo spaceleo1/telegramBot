@@ -1,5 +1,7 @@
 from telegram.ext import Updater
-from telegram.ext import CommandHandler, MessageHandler, Filters
+from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from datetime import datetime
 import logging
 import json
 
@@ -7,13 +9,14 @@ from user import User
 
 users = {}
 
-def check_user_clear(id, update, context):
-    if users[id].starting_game == True:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=
-                             "Игра отменена")
+
+def check_user_clear(id: int, update: Update, context: CallbackContext) -> None:
+    if users[id].starting_game:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Игра отменена")
         users[id].starting_game = False
 
-def start(update, context):
+
+def start(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     if user_id not in users:
         users[user_id] = User(user_id)
@@ -27,7 +30,15 @@ def start(update, context):
     """)
 
 
-def game_cmd(update, context):
+def button(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+
+    query.answer()
+
+    query.edit_message_text(text=f"Selected option: {query.data}")
+
+
+def game(update, context):
     id = update.message.from_user.id
     check_user_clear(id, update, context)
 
@@ -36,8 +47,9 @@ def game_cmd(update, context):
 На какую сумму будем играть?
 Введите натуральное число от 1 до {} (ровно столько у вас на балансе), также вы можете отправить любое слово, и игра будет отменена
 """.format(str(users[id].balance))
-    )
+                             )
     users[id].starting_game = True
+
 
 def balance(update, context):
     id = update.message.from_user.id
@@ -46,6 +58,7 @@ def balance(update, context):
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=
     "Ваш баланс: " + str(users[id].balance))
+
 
 def check_message(update, context):
     id = update.message.from_user.id
@@ -57,11 +70,17 @@ def check_message(update, context):
         try:
             num = int(update.message.text)
             if 1 <= num <= users[id].balance:
-                users[id].balance -= num
-                context.bot.send_message(chat_id=update.effective_chat.id, text =
-                "Игра началась, с вашего баланса списано "+
-                str(num)+
-                "")
+                keyboard = [
+                    [
+                        InlineKeyboardButton("Начать игру!", callback_data='1')
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                context.bot.send_message(chat_id=update.effective_chat.id, text=
+                "Итак, мы готовы стартовать, игра будет проводиться по правилам BlackJack на сумму " +
+                str(num) +
+                " как только вы нажмете на кнопку, мы спишем данную сумму с вашего баланса, и начнем раздачу карт!",
+                                         reply_markup=reply_markup)
             else:
                 ch = False
         except ValueError:
@@ -70,6 +89,26 @@ def check_message(update, context):
         if ch == False:
             context.bot.send_message(chat_id=update.effective_chat.id, text=
             "Игра отменена")
+
+
+def cashup(update: Update, context: CallbackContext) -> None:
+    id = update.message.from_user.id
+
+    check_user_clear(id, update, context)
+
+    nw = datetime.now()
+    total = (nw - users[id].time_cashup).total_seconds()
+    cnst_sec = 300
+    if (total >= cnst_sec):
+        users[id].balance += 15
+        users[id].time_cashup = nw
+        context.bot.send_message(chat_id=update.effective_chat.id, text=
+        "Баланс пополнен на 15")
+    else:
+        total = cnst_sec - total
+        context.bot.send_message(chat_id=update.effective_chat.id, text=
+        f"Баланс можно пополнять раз в 5 минут, подожди еще *{int(total/60)}* мин *{int(total)%60}* сек", parse_mode='Markdown')
+
 
 def main():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -84,11 +123,17 @@ def main():
     start_handler = CommandHandler('start', start)
     dispatcher.add_handler(start_handler)
 
-    game_handler = CommandHandler('game', game_cmd)
+    game_handler = CommandHandler('game', game)
     dispatcher.add_handler(game_handler)
 
     balance_handler = CommandHandler('balance', balance)
     dispatcher.add_handler(balance_handler)
+
+    cashup_handler = CommandHandler('cashup', cashup)
+    dispatcher.add_handler(cashup_handler)
+
+    button_handler = CallbackQueryHandler(button)
+    dispatcher.add_handler(button_handler)
 
     updater.start_polling()
 
